@@ -2,61 +2,48 @@
 #include <Windows.h>
 
 DWORD WINAPI ThreadFuc(LPVOID);
-DWORD WINAPI ThreadFuc1(LPVOID);
+
+#define  THREAD_POOL_SIZE 3
+#define  MAX_THREAD_INDEX	THREAD_POOL_SIZE - 1
+#define  NUM_TASK 6
 
 int main()
 {
-	HANDLE hThread,hThread1;
+	HANDLE hThread[THREAD_POOL_SIZE];
 	DWORD ThreadId;
-	DWORD ThreadId1;
 	DWORD ExitCode;
-	bool GetExit;
+	int slot = 0;
 
-	hThread1 = CreateThread(NULL,0, ThreadFuc1, 0, 0, &ThreadId1);
-	hThread = CreateThread(NULL, 0, ThreadFuc, 0, 0, &ThreadId);
-	std::cout << ThreadId1 << "Thread1 Running" << std::endl;
-	std::cout <<  ThreadId <<"Thread running" << std::endl;
-
-	WaitForSingleObject(hThread1, INFINITE);
-
-	while(1) {
-		GetExit = GetExitCodeThread(hThread, &ExitCode);
-
-		if (GetExit == true && ExitCode == STILL_ACTIVE) {
-			std::cout << "Thread is still alive" << std::endl;
-		} else {
-			CloseHandle(hThread);
-//			ExitThread(4);
-			std::cout << "Exit Thread" << std::endl;
-			break;
+	for	(int i = 0; i < NUM_TASK; i++) {
+		if (i > THREAD_POOL_SIZE) {
+			WaitForSingleObject(hThread[slot], INFINITE);
+			GetExitCodeThread(hThread[slot], &ExitCode);
+			printf("Slot %d terminated\n", ExitCode);
+			CloseHandle(hThread[slot]);
 		}
+
+		hThread[slot] = CreateThread(NULL, 0, ThreadFuc,
+			(LPVOID)slot, 0, &ThreadId);
+		printf("Launched thread #%d (slot %d)\n", i, slot);
+		if (++slot > MAX_THREAD_INDEX)
+			slot = 0;
+	} 
+
+	for (slot = 0; slot < THREAD_POOL_SIZE; slot++) {
+		WaitForSingleObject(hThread[slot], INFINITE);
+		CloseHandle(hThread[slot]);
 	}
+	printf("All slots terminated\n");
+
+	return 0;
+}
+
+DWORD WINAPI ThreadFuc(LPVOID n)
+{
+	srand(GetTickCount());
 	
-	std::cout << "Main Begin Sleep" << std::endl;
-	Sleep(2000);
-	std::cout << "Main Stop Sleep" << std::endl;
+	Sleep((rand() % 8)*500+500);
+	printf("Slot %d idle\n",n);
 
-	CloseHandle(hThread1);
-	return 0;
-}
-
-DWORD WINAPI ThreadFuc(LPVOID hThread1)
-{
-//	WaitForSingleObject(hThread1, INFINITE);  WaitForSingleObject放在哪哪个线程等待
-	for (int i = 0; i < 100; i++) {
-		std::cout << i << "Thread Begin" << std::endl;
-	}	
-	ExitThread(0);
-
-	std::cout <<  "Thread Exit" << std::endl;
-	return 0;
-}
-
-DWORD WINAPI ThreadFuc1(LPVOID)
-{
-	for (int i = 0; i < 50; i++) {
-		std::cout << i << "Thread1 Begin" << std::endl;
-	}
-
-	return 0;
+	return ((DWORD)n);
 }
